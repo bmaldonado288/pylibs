@@ -3664,8 +3664,7 @@ def get_schism_output_subset(fname,sname,xy=None,svars=None,grd=None,zlib=False,
    fid.close(); C.close()
    return gd
 
-def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,
-                       hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None,scrout=0,ispool=0):
+def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fname=None,hgrid=None,vgrid=None,fmt=0,mdt=None,extend=0,prj=None,zcor=0,sgrid=None,scrout=0,ispool=0,ICMfmt=0):
     '''
     extract time series of SCHISM results @xyz or transects @xy (works for scribe IO and combined oldIO)
        run:     run directory where (grid.npz or hgrid.gr3) and outputs are located
@@ -3686,6 +3685,7 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
        sgrid:   (optional) side-based grid used to extract side values (FEM method); see gd.scatter_to_grid(fmt=2)
        scrout:  (optional) print information for extracting variable and stack
        ispool:  (optional) the 1st record to start from (var[ispool::nspool])
+       ICMfmt:  (optional) 0: don't combine all ICM variables into single array;    1: combine all ICM variables into single array
     '''
 
     #get schism outputs information
@@ -3782,9 +3782,14 @@ def read_schism_output(run,varname,xyz,stacks=None,ifs=0,nspool=1,sname=None,fna
 
     #save data
     S=zdata(); sdict=S.__dict__; mt=array(mtime); mdata=[array(i) for i in mdata]
-    for m,k in enumerate(varname if sname is None else sname):
-        vi=mdata[m] if (mdt is None) else array([mdata[m][(mt>=i)*(mt<(i+mdt))].mean(axis=0) for i in arange(mt[0],mt[-1],mdt)]) #average
-        sdict[k]=squeeze(vi.transpose([1,0,2] if vi.ndim==3 else [1,0,2,3]))
+    if ICMfmt == 0: 
+        for m,k in enumerate(varname if sname is None else sname):
+            vi=mdata[m] if (mdt is None) else array([mdata[m][(mt>=i)*(mt<(i+mdt))].mean(axis=0) for i in arange(mt[0],mt[-1],mdt)]) #average
+            sdict[k]=squeeze(vi.transpose([1,0,2] if vi.ndim==3 else [1,0,2,3]))
+    else: #ICMfmt=1
+        mdatasq = squeeze(array(mdata),axis=-1); 
+        S.ICMdata = transpose(mdatasq,axes=(2,1,3,0))
+        S.ICMvars = varname
     S.time=mt if (mdt is None) else array([mt[(mt>=i)*(mt<(i+mdt))].mean() for i in arange(mt[0],mt[-1],mdt)]) #average
     if fname is not None: S.save(fname)
     return S
